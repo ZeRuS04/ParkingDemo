@@ -4,5 +4,8 @@
         <file>Area.qml</file>
         <file>ParkingRect.qml</file>
         <file>Place.qml</file>
+        <file>Parking.qml</file>
+        <file>singletons/qmldir</file>
+        <file>singletons/Common.qml</file>
     </qresource>
 </RCC>

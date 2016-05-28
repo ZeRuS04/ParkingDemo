@@ -1,12 +1,15 @@
 import QtQuick 2.0
 
+import "./singletons" as Singletons
+
 Rectangle {
     id: root
 
     property  list<Place> placeArray
-    property int roadCount: 2
-    property real placeWidth: 60
-    property real placeHeight: 40
+
+    property int roadCount: Singletons.common.roadCount
+    property real placeWidth: Singletons.common.placeWidth
+    property real placeHeight: Singletons.common.placeHeight
 
     property int rows: Math.floor(longEdge / placeHeight)
     property int columns: Math.floor(shortEdge / (2*placeWidth + roadCount * placeHeight))

@@ -1,9 +1,70 @@
 import QtQuick 2.0
 
+import "./singletons" as Singletons
+
 Item {
     id: root
 
-    property rect  parking: Qt.rect(-1,-1,0,0)
+//    property rect parking: Qt.rect(-1,-1,0,0)
+
+
+    Parking{
+        id: parking
+
+        anchors.fill: parent
+
+        MouseArea{
+            id: parkingMA
+            anchors.fill: parent;
+            hoverEnabled: Singletons.common.state === 1
+            preventStealing: true
+            propagateComposedEvents: true
+            onPressed: {
+                console.log("1")
+                switch(Singletons.common.state){
+                case 0:
+                    if(parking.currentIndex === -1) {
+                        parking.addVertex(mouse.x, mouse.y);
+                        parking.currentIndex = parking.vertexCount-1;
+                    }
+                    break;
+                case 1:
+                        parking.addEntry(mouse.x, mouse.y, entry.rotation)
+                    break;
+                }
+            }
+
+            onPositionChanged: {
+                switch(Singletons.common.state){
+                case 0:
+                    var point = parking.checkNeighboring(mouse.x,mouse.y, parking.currentIndex);
+                    parking.changeVertex(point.x, point.y, parking.currentIndex);
+//                    parking.posChanged(parking.currentVertex);
+                    break;
+                }
+            }
+
+            onReleased:{
+                parking.currentIndex = -1;
+            }
+        }
+    }
+
+//    Repeater{
+//        id: parkingRoads
+//        model: parking.roads
+//        delegate:         Rectangle{
+//            x: modelData.x
+//            y: modelData.y
+//            width: placeWidth.value
+//            height: placeHeigh.value
+//            color: modelData.isBegin() ? "lightgreen"
+//                                       : (modelData.isEnd() ? "darkred"
+//                                                           : "skyblue")
+//        }
+//    }
+
+/*
     MouseArea {
         anchors.fill: parent
 
@@ -16,14 +77,11 @@ Item {
             var width = mouse.x - root.parking.x;
            var height = mouse.y - root.parking.y;
            root.parking.width = Math.abs(width);
-           root.parking.height = Math.abs(height);
-//           if(width  < 0)
-//               root.parking.x = mouse.x;
-//           if (height < 0)
-//               root.parent.y = mouse.y;
+           root.parking.height = Math.abs(height);\
         }
         onReleased: parkingRect.start();
     }
+
 
     ParkingRect {
         id: parkingRect
@@ -32,4 +90,7 @@ Item {
         width: parking.width
         height: parking.height
     }
+*/
+
+
 }
