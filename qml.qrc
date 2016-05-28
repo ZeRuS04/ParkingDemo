@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/">
+        <file>main.qml</file>
+        <file>Area.qml</file>
+        <file>ParkingRect.qml</file>
+        <file>Place.qml</file>
+    </qresource>
+</RCC>
