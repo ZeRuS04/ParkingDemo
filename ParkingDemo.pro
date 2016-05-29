@@ -3,7 +3,11 @@ TEMPLATE = app
 QT += qml quick
 CONFIG += c++11
 
-SOURCES += main.cpp
+HEADERS += \
+    utils_p.h
+
+SOURCES += main.cpp \
+    utils.cpp
 
 RESOURCES += qml.qrc
 

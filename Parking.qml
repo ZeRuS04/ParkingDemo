@@ -1,7 +1,7 @@
 import QtQuick 2.0
 
 import "./singletons" as Singletons
-
+import My.Utils 1.0
 Item {
     id: parking
 
@@ -13,6 +13,7 @@ Item {
     property var vertexes: []
     property var isConcaveVertex: []
 
+    property var __allPoints: []
     property list<ParkingRect> rect
 
     function removeVertex(index) {
@@ -91,6 +92,28 @@ Item {
     }
 
     function splitParking() {
+        __allPoints.length = 0;
+        var xArray = [];
+        var yArray = [];
+        for(var i = 0; i < vertexCount; i++) {
+            if (xArray.indexOf(vertexes[i].x) === -1)
+                xArray.push(vertexes[i].x)
+            if (xArray.indexOf(vertexes[i].y) === -1)
+                yArray.push(vertexes[i].y)
+        }
+
+        for(var k = 0; k < xArray.length; k++) {
+            for(var j = 0; j < yArray.length; j++) {
+                if (j === i)
+                    continue;
+
+                var p = Qt.point(xArray[k], yArray[j]);
+                if(__allPoints.indexOf(p) === -1)
+                    __allPoints.push(p)
+            }
+        }
+        __allPointsChanged();
+        console.log("###",__allPoints );
     }
 
     focus: true
@@ -162,4 +185,21 @@ Item {
             }
         }
     }
+
+    Repeater{
+        id: phantomVertecies
+        anchors.fill: parent
+        model: parking.__allPoints
+        delegate: Rectangle{
+            id: phVertex
+
+            x: modelData.x - width/2
+            y: modelData.y - height/2
+            color: "blue"
+            width: 3
+            height: width
+            radius: width/2
+        }
+    }
+
 }
