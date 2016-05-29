@@ -93,15 +93,28 @@ Window {
                      onCurrentIndexChanged: Singletons.common.state = currentIndex;
                  }
              }
+
              Button{
                 text: "Start"
 
                 Layout.fillHeight: true
                 Layout.fillWidth: true
-                Layout.columnSpan: 2
+                Layout.columnSpan: 1
 
                 onClicked: {
                     Singletons.common.start();
+                }
+             }
+
+             Button{
+                text: "Reset"
+
+                Layout.fillHeight: true
+                Layout.fillWidth: true
+                Layout.columnSpan: 1
+
+                onClicked: {
+                    Singletons.common.reset();
                 }
              }
         }

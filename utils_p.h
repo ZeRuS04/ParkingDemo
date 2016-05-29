@@ -49,6 +49,9 @@ public:
     Q_INVOKABLE QPointF centerAlongCircle(qreal xCenter, qreal yCenter,
                                           qreal width, qreal height, qreal angleOnCircle, qreal distanceAlongRadius) const;
     Q_INVOKABLE qreal roundEven(qreal number) const;
+    Q_INVOKABLE QPointF intersect(QPointF p1, QPointF p2, QPointF p3, QPointF p4);
+    Q_INVOKABLE double lineLength(QPointF p1, QPointF p2);
+
 };
 
 

@@ -52,6 +52,12 @@ Rectangle {
         }
     }
 
+    Connections {
+        target: Singletons.common
+        onReset: root.destroy();
+        onStart: root.destroy();
+    }
+
     Rectangle {
         id: big
         x: root.width - width

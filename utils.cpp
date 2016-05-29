@@ -2,6 +2,8 @@
 
 #include <QtCore/qdatetime.h>
 #include <QtCore/qmath.h>
+#include <QLineF>
+
 
 QT_BEGIN_NAMESPACE
 
@@ -139,6 +141,22 @@ qreal MathUtils::roundEven(qreal number) const
     return rounded + rounded % 2;
 }
 
+QPointF MathUtils::intersect(QPointF p1, QPointF p2, QPointF p3, QPointF p4)
+{
+    QLineF line1(p1, p2);
+    QLineF line2(p3, p4);
+    QPointF intersectPoint;
+    if (line1.intersect(line2, &intersectPoint) == QLineF::BoundedIntersection)
+        return intersectPoint;
+    else
+        return QPointF(-1,-1);
+}
+
+double MathUtils::lineLength(QPointF p1, QPointF p2)
+{
+    QLineF line(p1, p2);
+    return line.length();
+}
 
 TimeUtils::TimeUtils(QObject *parent)
     : QObject(parent)
