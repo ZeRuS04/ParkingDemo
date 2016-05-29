@@ -20,7 +20,6 @@ Item {
             preventStealing: true
             propagateComposedEvents: true
             onPressed: {
-                console.log("1")
                 switch(Singletons.common.state){
                 case 0:
                     if(parking.currentIndex === -1) {
@@ -39,7 +38,6 @@ Item {
                 case 0:
                     var point = parking.checkNeighboring(mouse.x,mouse.y, parking.currentIndex);
                     parking.changeVertex(point.x, point.y, parking.currentIndex);
-//                    parking.posChanged(parking.currentVertex);
                     break;
                 }
             }
@@ -49,20 +47,6 @@ Item {
             }
         }
     }
-
-//    Repeater{
-//        id: parkingRoads
-//        model: parking.roads
-//        delegate:         Rectangle{
-//            x: modelData.x
-//            y: modelData.y
-//            width: placeWidth.value
-//            height: placeHeigh.value
-//            color: modelData.isBegin() ? "lightgreen"
-//                                       : (modelData.isEnd() ? "darkred"
-//                                                           : "skyblue")
-//        }
-//    }
 
 /*
     MouseArea {

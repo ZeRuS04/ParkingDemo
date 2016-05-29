@@ -101,7 +101,7 @@ Window {
                 Layout.columnSpan: 2
 
                 onClicked: {
-                    parking.startMarking();
+                    Singletons.common.start();
                 }
              }
         }

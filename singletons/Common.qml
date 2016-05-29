@@ -12,10 +12,6 @@ QtObject {
     property real placeWidth: 10
     property real placeHeight: 10
 
+    signal start()
     signal reset()
-
-    onReset: {
-        state = 0;
-    }
-
 }
