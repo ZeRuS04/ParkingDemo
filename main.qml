@@ -66,8 +66,8 @@ Window {
                  SpinBox{
                      id: placeWidth
                      width: 100
-                     value: 10
-                     minimumValue: 10
+                     value: Singletons.common.placeWidth
+                     minimumValue: 2
                      maximumValue: 10000
                      onValueChanged: Singletons.common.placeWidth = placeWidth.value
                  }
@@ -77,20 +77,27 @@ Window {
                  SpinBox{
                      id: placeHeigh
                      width: 100
-                     value: 10
-                     minimumValue: 10
+                     value: Singletons.common.placeHeight
+                     minimumValue: 2
                      maximumValue: 10000
                      onValueChanged: Singletons.common.placeHeigh = placeHeigh.value
                  }
                  Text{
-                     text: "Mode:";
+                     text: "Visible:";
+                 }
+                 ComboBox {
+                     id: graphState
+                     width: 100
+                     model: [ "Main graph", "Road graph", "Access Graph", "None"]
+
+                     onCurrentIndexChanged: Singletons.common.visibleGraph = currentIndex;
                  }
                  ComboBox {
                      id: mode
                      width: 100
-                     model: [ "Add Vertex"/*, "Add exit"*/ ]
+                     model: [ "All", "Parking", "Places", "Parking rects"]
 
-                     onCurrentIndexChanged: Singletons.common.state = currentIndex;
+                     onCurrentIndexChanged: Singletons.common.visibleState = currentIndex;
                  }
              }
 

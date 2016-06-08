@@ -7,5 +7,6 @@
         <file>Parking.qml</file>
         <file>singletons/qmldir</file>
         <file>singletons/Common.qml</file>
+        <file>Link.qml</file>
     </qresource>
 </RCC>

@@ -16,6 +16,9 @@ Item {
     property var __allPoints: []
     property var rects: []
     property var intersectPoints: []
+    property var parkingRectList: []
+
+    property var placeArray: []
 
     function removeVertex(index) {
         if((index < 0) || (index >= vertexes.length))
@@ -97,25 +100,57 @@ Item {
             generateRect(intersectPoints[i].index, intersectPoints[i].point);
         }
 
+        if (vertexes.length === 4) {
+            while (__allPoints.length !== 0) {
+                var point = __allPoints.pop();
+                console.log(vertexes.indexOf(point), point);
+                generateRect(vertexes.indexOf(point), point);
+            }
+        }
+
         var component = Qt.createComponent("ParkingRect.qml");
         for(var r = 0; r < rects.length; r++) {
             var rectObject = component.createObject(parking, {"width": rects[r].width, "height": rects[r].height,
                                                         "x": rects[r].x, "y": rects[r].y });
+            parkingRectList.push(rectObject);
         }
+
+        console.log("Total %1 rect generated".arg(rects.length));
     }
 
     function generateRect(i, newPoint) {
         var newRect = Qt.rect(-1,-1,0,0);
         var point = vertexes[i];
 
-        var leftIndex = i, rightIndex = i, leftPoint, rightPoint;
-
+        var leftIndex = i,
+                rightIndex = i,
+                leftPoint = point,
+                rightPoint = point,
+                lastPoint;
         do {
+            lastPoint = leftPoint;
             leftIndex = leftIndex === 0 ? vertexCount - 1 : leftIndex - 1;
             leftPoint = vertexes[leftIndex]
+
+            if(__allPoints.indexOf(leftPoint) !== -1)
+                __allPoints.splice(__allPoints.indexOf(leftPoint), 1);
+
+            for (var k = 0; k < intersectPoints.length; k++) {
+                if (intersectPoints[k].index === i)
+                    continue;
+                var tmpP = MathUtils.intersect(leftPoint, lastPoint,
+                                               intersectPoints[k].point, vertexes[intersectPoints[k].index]);
+                if ((tmpP.x !== -1 || tmpP.y !== -1) && tmpP !== leftPoint && tmpP !== lastPoint) {
+                    if (tmpP.x === newPoint.x || tmpP.y === newPoint.y)
+                        leftPoint = vertexes[intersectPoints[k].index];
+                    else
+                        leftPoint = tmpP;
+                    break;
+                }
+            }
         } while(!isConcaveVertex[leftIndex] && (leftPoint.x === newPoint.x || leftPoint.y === newPoint.y));
 
-        if (isConcaveVertex[leftIndex]) {
+        if (isConcaveVertex[leftIndex] && (leftPoint.x === newPoint.x || leftPoint.y === newPoint.y)) {
             for (var j = 0; j < intersectPoints.length; j++) {
                 if (intersectPoints[j].index === leftIndex) {
                     leftPoint = intersectPoints[j].point;
@@ -123,19 +158,37 @@ Item {
                 }
             }
         }
+
         newRect.width = Math.abs(newPoint.x - leftPoint.x);
         newRect.height = Math.abs(newPoint.y - leftPoint.y);
         newRect.x = Math.min(newPoint.x, leftPoint.x);
         newRect.y = Math.min(newPoint.y, leftPoint.y);
-        console.log("### newRect1", newRect)
+
         if(parking.rects.indexOf(newRect) === -1)
             parking.rects.push(newRect);
 
         newRect = Qt.rect(-1,-1,0,0);
         do {
+            lastPoint = rightPoint;
             rightIndex = rightIndex === vertexCount - 1 ? 0 : rightIndex + 1;
             rightPoint = vertexes[rightIndex]
-            console.log('###', i, rightIndex, rightPoint)
+
+            if(__allPoints.indexOf(rightPoint) !== -1)
+                __allPoints.splice(__allPoints.indexOf(rightPoint), 1);
+
+            for (var k = 0; k < intersectPoints.length; k++) {
+                if (intersectPoints[k].index === i)
+                    continue;
+                var tmpP = MathUtils.intersect(rightPoint, lastPoint,
+                                               intersectPoints[k].point, vertexes[intersectPoints[k].index]);
+                if ((tmpP.x !== -1 || tmpP.y !== -1) && tmpP !== rightPoint && tmpP !== lastPoint) {
+                    if (tmpP.x === newPoint.x || tmpP.y === newPoint.y)
+                        rightPoint = vertexes[intersectPoints[k].index];
+                    else
+                        rightPoint = tmpP;
+                    break;
+                }
+            }
         } while(!isConcaveVertex[rightIndex] && (rightPoint.x === newPoint.x || rightPoint.y === newPoint.y));
 
         if (isConcaveVertex[rightIndex]) {
@@ -150,7 +203,10 @@ Item {
         newRect.height = Math.abs(newPoint.y - rightPoint.y);
         newRect.x = Math.min(newPoint.x, rightPoint.x);
         newRect.y = Math.min(newPoint.y, rightPoint.y);
-        console.log("### newRect2", newRect)
+
+        if(__allPoints.indexOf(newPoint) !== -1)
+            __allPoints.splice(__allPoints.indexOf(newPoint), 1);
+
         if(parking.rects.indexOf(newRect) === -1)
             parking.rects.push(newRect);
     }
@@ -158,10 +214,13 @@ Item {
     function splitParking() {
         var hLines = [];
         var vLines = [];
-        var line;
+        var line, offset = 0;
+        console.log(__allPoints.length, __allPoints)
+
         for(var i = 0; i < vertexCount; i++) {
+            __allPoints.push(vertexes[i]);
+
             line = {"p1":vertexes[i], "p2":(i === vertexCount -1 ? vertexes[0] : vertexes[i+1])}
-//            console.log("### lines", vertexes[0], )
             if (line.p1.x !== line.p2.x)
                 hLines.push(line);
             else
@@ -270,13 +329,12 @@ Item {
                 vLines.push(line)
             else
                 hLines.push(line)
-            __allPoints.push(newPoint)
+            __allPoints.push(newPoint);
         }
 
         fillParking(i, newPoint);
 
         __allPointsChanged();
-        console.log("###",__allPoints );
     }
 
     focus: true
@@ -291,7 +349,12 @@ Item {
         target: Singletons.common
 
         onStart: {
+            parkingRectList.length = 0;
             splitParking();
+
+            for(var i = 0; i < parkingRectList.length; i++) {
+                parkingRectList[i].start();
+            }
         }
         onReset: {
             parking.__allPoints.length = 0;
@@ -302,6 +365,7 @@ Item {
             parking.vertexes.length = 0;
             parking.vertexesChanged();
             parking.currentIndex = 0;
+            parking.parkingRectList.length = 0;
             canvas.requestPaint();
         }
     }
@@ -315,12 +379,12 @@ Item {
             onVertexesChanged: canvas.requestPaint()
         }
 
+        visible: Singletons.common.visibleState === 0 || Singletons.common.visibleState === 1
         onPaint: {
-
             var ctx = canvas.getContext("2d");
 
             ctx.clearRect (0, 0, canvas.width, canvas.height);
-            ctx.strokeStyle = Qt.rgba(1, 0, 0, 1);
+            ctx.strokeStyle = Qt.rgba(0, 0, 0, 1);
             ctx.beginPath ();
 
             if(parking.vertexCount === 0) {
@@ -333,6 +397,111 @@ Item {
                 ctx.lineTo(parking.vertexes[i].x, parking.vertexes[i].y);
             }
             ctx.stroke();
+
+            ctx.closePath();
+        }
+    }
+
+    Canvas {
+        id: neighbors
+        anchors.fill: parent
+
+        Connections {
+            target: parking
+            onPlaceArrayChanged: neighbors.requestPaint()
+        }
+        Connections {
+            target: Singletons.common
+            onReset: neighbors.requestPaint()
+            onStart: neighbors.requestPaint()
+        }
+        visible: Singletons.common.visibleGraph === 0
+        onPaint: {
+            var ctx = neighbors.getContext("2d");
+
+            ctx.clearRect (0, 0, neighbors.width, neighbors.height);
+            ctx.strokeStyle = Qt.rgba(0, 0, 0, 1);
+            ctx.lineWidth = 3;
+            ctx.beginPath ();
+
+            for(var i = 0; i < placeArray.length; i++) {
+                for(var j = 0; j < placeArray[i].neighbors.length; j++) {
+                    ctx.moveTo(placeArray[i].x +  placeArray[i].width / 2, placeArray[i].y +  placeArray[i].height / 2);
+                    var p = placeArray[placeArray[i].neighbors[j]]
+                    ctx.lineTo(p.x +  p.width / 2, p.y +  p.height / 2);
+                }
+            }
+            ctx.stroke();
+            ctx.closePath();
+        }
+    }
+
+    Canvas {
+        id: neighborRoad
+        anchors.fill: parent
+
+        Connections {
+            target: parking
+            onPlaceArrayChanged: neighborRoad.requestPaint()
+        }
+        Connections {
+            target: Singletons.common
+            onReset: neighborRoad.requestPaint()
+            onStart: neighborRoad.requestPaint()
+        }
+        visible: Singletons.common.visibleGraph === 1
+        onPaint: {
+            var ctx = neighborRoad.getContext("2d");
+
+            ctx.clearRect (0, 0, neighborRoad.width, neighborRoad.height);
+            ctx.strokeStyle = Qt.rgba(0, 0, 0, 1);
+            ctx.lineWidth = 3;
+            ctx.beginPath ();
+
+            for(var i = 0; i < placeArray.length; i++) {
+                for(var j = 0; j < placeArray[i].neighborRoad.length; j++) {
+                    ctx.moveTo(placeArray[i].x +  placeArray[i].width / 2, placeArray[i].y +  placeArray[i].height / 2);
+                    var p = placeArray[placeArray[i].neighborRoad[j]]
+                    ctx.lineTo(p.x +  p.width / 2, p.y +  p.height / 2);
+                }
+            }
+            ctx.stroke();
+            ctx.closePath();
+        }
+    }
+
+    Canvas {
+        id: neighborPlaces
+        anchors.fill: parent
+
+        Connections {
+            target: parking
+            onPlaceArrayChanged: neighborPlaces.requestPaint()
+        }
+        Connections {
+            target: Singletons.common
+            onReset: neighborPlaces.requestPaint()
+            onStart: neighborPlaces.requestPaint()
+        }
+        visible: Singletons.common.visibleGraph === 2
+        onPaint: {
+            var ctx = neighborPlaces.getContext("2d");
+
+            ctx.clearRect (0, 0, neighborPlaces.width, neighborPlaces.height);
+            ctx.strokeStyle = Qt.rgba(0, 0, 0, 1);
+            ctx.beginPath ();
+
+            ctx.lineWidth = 3;
+
+            for(var i = 0; i < placeArray.length; i++) {
+                for(var j = 0; j < placeArray[i].neighborPlaces.length; j++) {
+                    ctx.moveTo(placeArray[i].x +  placeArray[i].width / 2, placeArray[i].y +  placeArray[i].height / 2);
+                    var p = placeArray[placeArray[i].neighborPlaces[j]]
+                    ctx.lineTo(p.x +  p.width / 2, p.y +  p.height / 2);
+                }
+            }
+            ctx.stroke();
+            ctx.closePath();
         }
     }
 
@@ -340,6 +509,9 @@ Item {
         id: parkingVertecies
         anchors.fill: parent
         model: parking.vertexes
+
+        visible: Singletons.common.visibleState === 0 || Singletons.common.visibleState === 1
+
         delegate: Rectangle{
             id: vertex
             property alias select: vertexMA.pressed
@@ -379,5 +551,4 @@ Item {
             radius: width/2
         }
     }
-
 }
