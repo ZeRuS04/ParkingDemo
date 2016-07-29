@@ -96,10 +96,10 @@ Item {
     }
 
     function fillParking() {
-        for (var i = 0; i < intersectPoints.length; i++) {
+        /*for (var i = 0; i < intersectPoints.length; i++) {
             generateRect(intersectPoints[i].index, intersectPoints[i].point);
-        }
-
+        }*/
+        generateRects();
         if (vertexes.length === 4) {
             while (__allPoints.length !== 0) {
                 var point = __allPoints.pop();
@@ -211,6 +211,83 @@ Item {
             parking.rects.push(newRect);
     }
 
+    function generateRects(){
+        var allPoints = __allPoints;
+        while (allPoints.length > 4) {
+            var rectVertexes = findRectVertexes(allPoints[0], allPoints[1], allPoints);
+
+            allPoints = removeExtraVertex(rectVertexes, allPoints);
+
+            var newRect = rectFromArray(rectVertexes);
+
+            console.log("New rect finded: ",  newRect);
+            if(parking.rects.indexOf(newRect) === -1)
+                parking.rects.push(newRect);
+        }
+         if (allPoints.length === 4) {
+             newRect = rectFromArray(allPoints);
+             console.log("New rect finded: ",  newRect);
+             if(parking.rects.indexOf(newRect) === -1)
+                 parking.rects.push(newRect);
+         }
+    }
+
+    function removeExtraVertex (rectVertexes, array) {
+        for (var i = 0; i < rectVertexes.length; i++) {
+            if ((vertexes.indexOf(rectVertexes[i])) !== -1) {
+                array.splice(array.indexOf(rectVertexes[i]), 1);
+            }
+        }
+        return array;
+    }
+
+    function findRectVertexes(point1, point2, array) {
+        console.log("========Start findRectVertexes: ", point1, point2, array)
+        var key, antikey, delta, findPoints = [];
+
+        // Выберемо по какой кординатеискать точки
+        if (point1.x === point2.x) {
+            key = "y";
+            antikey = "x";
+        } else if (point1.у === point2.у) {
+            key = "x";
+            antikey = "y";
+        } else console.assert("CRITICAL ERROR");
+
+        delta = Math.abs(point1[key] - point2[key]);
+
+        // пройдем все точки и найдем те что соответствуют кординате одной из точек
+        for (var i = 2; i < array.length; i++) {
+            if ((array[i][key] === point1[key]) || (array[i][key] === point2[key])) {
+                for (var j = 0; j < findPoints.length; j++) {
+                    if (Math.abs(findPoints[j][key] - array[i][key]) === delta &&
+                        findPoints[j][antikey] === array[i][antikey]) {
+                        return [point1, point2, array[i], findPoints[j]];
+                    }
+                }
+                findPoints.push(array[i]);
+            }
+        }
+        return [];
+    }
+
+    function rectFromArray(array) {
+        var minX, minY, maxY, p4,width, height;
+
+        var arrX = [array[0].x, array[1].x, array[2].x, array[3].x]
+        var arrY = [array[0].y, array[1].y, array[2].y, array[3].y]
+
+        arrX.sort(function(a,b) {
+            return a - b;
+        });
+
+        arrY.sort(function(a,b) {
+            return a - b;
+        });
+
+        return Qt.rect(arrX[0], arrY[0], arrX[3] - arrX[0], arrY[3] - arrY[0])
+    }
+/*
     function splitParking() {
         var hLines = [];
         var vLines = [];
@@ -232,7 +309,6 @@ Item {
             if (!isConcaveVertex[i])
                 continue;
             // Если вершина вогнутая
-
             var intersectPoint, intersectPoints = [];
             var point = vertexes[i];
             // Рассмотрим соседнюю вершину слева
@@ -331,8 +407,21 @@ Item {
                 hLines.push(line)
             __allPoints.push(newPoint);
         }
+        console.log("All points: ", __allPoints)
 
         fillParking(i, newPoint);
+
+        __allPointsChanged();
+    }
+*/
+    function splitParking() {
+        fillParking(i, newPoint);
+
+        for(var i = 0; i < vertexCount; i++) {
+            if (!isConcaveVertex[i])
+                continue;
+
+        }
 
         __allPointsChanged();
     }
