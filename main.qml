@@ -106,7 +106,7 @@ Window {
 
                 Layout.fillHeight: true
                 Layout.fillWidth: true
-                Layout.columnSpan: 1
+                Layout.columnSpan: 2
 
                 onClicked: {
                     Singletons.common.start();
@@ -122,6 +122,17 @@ Window {
 
                 onClicked: {
                     Singletons.common.reset();
+                }
+             }
+             Button{
+                text: "Clear"
+
+                Layout.fillHeight: true
+                Layout.fillWidth: true
+                Layout.columnSpan: 1
+
+                onClicked: {
+                    Singletons.common.clear();
                 }
              }
         }

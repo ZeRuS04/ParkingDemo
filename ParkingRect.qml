@@ -10,6 +10,10 @@ Rectangle {
     property int roadCount: Singletons.common.roadCount
     property real placeWidth: Singletons.common.placeWidth
     property real placeHeight: Singletons.common.placeHeight
+    property var streetBegins: []
+
+    property int firstPlaceIndex
+    property int countOfPlaces
 
     property int rows: Math.floor(longEdge / Math.min(root.placeHeight, root.placeWidth))
     property int columns: Math.floor(shortEdge / (2*Math.max(root.placeHeight, root.placeWidth) +
@@ -31,9 +35,190 @@ Rectangle {
     color: "#44999999"
     border.color: "black"
     clip: false
+    
     function start() {
+        firstPlaceIndex = parking.placeArray.length;
         fillMainIsland();
         fillBigIsland();
+        mergeStreets();
+        countOfPlaces = parking.placeArray.length - firstPlaceIndex;
+
+        neighbors.requestPaint()
+        neighborRoad.requestPaint()
+        neighborPlaces.requestPaint()
+    }
+
+    function findRoad(place, path, maxDeep) {
+        for (var neighbor = 0; neighbor < place.neighbors.length; neighbor++) {
+            if (path.length === 0 && parking.placeArray[place.neighbors[neighbor]].isRoad
+                    || (path.indexOf(parking.placeArray[place.neighbors[neighbor]]) !== -1))
+                continue;
+            path.push(place);
+            if (parking.placeArray[place.neighbors[neighbor]].isRoad && parking.placeArray[place.neighbors[neighbor]].neighbors.indexOf(path[0].index) === -1) {
+                path.push(parking.placeArray[place.neighbors[neighbor]]);
+                return path;
+            }
+            if (path.length === maxDeep) {
+                path.pop();
+                return path;
+            }
+            var pathSize = path.length;
+            var arr = findRoad(parking.placeArray[place.neighbors[neighbor]], path, maxDeep);
+
+            if (arr.length === pathSize) {
+                path.pop();
+                continue;
+            }
+
+            return arr;
+        }
+
+        return path;
+    }
+
+    function mergeStreets() {
+        console.log("mergeStreets started")
+        if (roadCount === 2) {
+            for (var street = 0; street < streetBegins.length - 1; street++) {
+                var place = streetBegins[street],
+                        oldPlace = null;
+                for (var i = 0; i < Math.floor(rows / 2); i++) {
+                    for (var neighbor = 0; neighbor < place.neighborRoad.length; neighbor++) {
+                        if (parking.placeArray[place.neighborRoad[neighbor]] !== oldPlace) {
+                            oldPlace = place;
+                            place = parking.placeArray[place.neighborRoad[neighbor]];
+                            break;
+                        }
+                    }
+                }
+
+                var foundedRoads = findRoad(place, [], 3);
+                var last = null;
+                var indexDelta = 0;
+                var param;
+                foundedRoads.forEach(function(entry) {
+                    if (last === null || entry.isRoad) {
+                        if (last !== null) {
+                            if (last && entry.neighborRoad.indexOf(last.index) === -1)
+                                entry.neighborRoad.push(last.index);
+                            if (last.neighborRoad.indexOf(entry.index) === -1)
+                                last.neighborRoad.push(entry.index);
+                            if (last && entry.neighborPlaces.indexOf(last.index) === -1)
+                                entry.neighborPlaces.push(last.index);
+                            if (last.neighborPlaces.indexOf(entry.index) === -1)
+                                last.neighborPlaces.push(entry.index);
+                        }
+
+                        last = entry;
+                        entry.isRoad = true;
+                        return;
+                    }
+
+                    if (param === undefined) {
+                        param = (entry.x === last.x) ? "y"
+                                                     : "x";
+                    }
+                    for (var neighbor = 0; neighbor < entry.neighbors.length; neighbor++) {
+                        if (parking.placeArray[entry.neighbors[neighbor]].isRoad ||
+                                foundedRoads.indexOf(parking.placeArray[entry.neighbors[neighbor]]) !== -1)
+                            continue;
+                        if (indexDelta === 0) {
+                            indexDelta = parking.placeArray[entry.neighbors[neighbor]][param] - entry[param];
+                            mergePlaces(entry, parking.placeArray[entry.neighbors[neighbor]]);
+                            break;
+                        } else {
+                            if ((parking.placeArray[entry.neighbors[neighbor]][param] - entry[param]) * indexDelta > 0) {
+                                mergePlaces(entry, parking.placeArray[entry.neighbors[neighbor]]);
+                                break;
+                            }
+                        }
+                    }
+
+                    if (last && entry.neighborRoad.indexOf(last.index) === -1)
+                        entry.neighborRoad.push(last.index);
+                    if (last.neighborRoad.indexOf(entry.index) === -1)
+                        last.neighborRoad.push(entry.index);
+                    if (last && entry.neighborPlaces.indexOf(last.index) === -1)
+                        entry.neighborPlaces.push(last.index);
+                    if (last.neighborPlaces.indexOf(entry.index) === -1)
+                        last.neighborPlaces.push(entry.index);
+                    last = entry;
+                    entry.isRoad = true;
+                })
+            }
+        }
+        if (roadCount === 1) {
+            for (var street = 0; street < streetBegins.length - 1; street++) {
+                var place = streetBegins[street],
+                        oldPlace = null;
+                for (var i = 0; i < rows; i++) {
+                    if (i === 0 || i === rows - 1) {
+                        var foundedRoads = findRoad(place, [], 3);
+                        var last = null;
+                        var indexDelta = 0;
+                        var param;
+                        foundedRoads.forEach(function(entry) {
+                            if (last !== null) {
+                                if (last && entry.neighborRoad.indexOf(last.index) === -1)
+                                    entry.neighborRoad.push(last.index);
+                                if (last.neighborRoad.indexOf(entry.index) === -1)
+                                    last.neighborRoad.push(entry.index);
+                                if (last && entry.neighborPlaces.indexOf(last.index) === -1)
+                                    entry.neighborPlaces.push(last.index);
+                                if (last.neighborPlaces.indexOf(entry.index) === -1)
+                                    last.neighborPlaces.push(entry.index);
+                            }
+
+                            last = entry;
+                            entry.isRoad = true;
+                        });
+                    }
+
+                    for (var neighbor = 0; neighbor < place.neighborRoad.length; neighbor++) {
+                        if (parking.placeArray[place.neighborRoad[neighbor]] !== oldPlace) {
+                            oldPlace = place;
+                            place = parking.placeArray[place.neighborRoad[neighbor]];
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        console.log("mergeStreets ended")
+    }
+
+    function mergePlaces(place1, place2) {
+        var placeIndex1 = place1.index,
+            placeIndex2 = place2.index;
+        console.log("###", placeIndex1, place1, "\t", placeIndex2, place2)
+        if (!place1 || !place2) {
+            console.log("mergePlaces: ERROR.  Some place is null or undefined.");
+            return;
+        }
+
+        place1.neighbors.concat(place2.neighbors)
+        place1.neighbors.splice(place1.neighbors.indexOf(placeIndex1), 1);
+        place1.neighbors.splice(place1.neighbors.indexOf(placeIndex2), 1);
+
+        place2.neighbors.forEach(function (entry){
+            var place = parking.placeArray[entry];
+            place.neighbors.splice(place.neighbors.indexOf(placeIndex2), 1, placeIndex1);
+        });
+        place2.neighborPlaces.forEach(function (entry){
+            var place = parking.placeArray[entry];
+            place.neighborPlaces.splice(place.neighborPlaces.indexOf(placeIndex2), 1, placeIndex1);
+        });
+        if (place1.x === place2.x) {
+            place1.height += place2.height;
+        } else if (place1.y === place2.y) {
+            place1.width += place2.width;
+        } else console.log("CRITICAL ERROR");
+
+        place1.x = Math.min(place1.x, place2.x)
+        place1.y = Math.min(place1.y, place2.y)
+
+        parking.placeArray[placeIndex2] = undefined;
+        parking.placeArrayChanged();
     }
 
     function fillMainIsland() {
@@ -77,7 +262,10 @@ Rectangle {
                     road.addNeighbors(road.index - columns * 3);
                     road.addNeighborRoad(road.index - columns * 3);
                     road.addNeighborPlaces(road.index - columns * 3);
+                } else {
+                    streetBegins.push(road);
                 }
+
                 if (i !== rows - 1) {
                     road.addNeighbors(road.index + columns * 3);
                     road.addNeighborRoad(road.index + columns * 3);
@@ -178,7 +366,120 @@ Rectangle {
         target: Singletons.common
         onReset: root.destroy();
         onStart: root.destroy();
+        onClear: root.destroy();
     }
+
+    Canvas {
+        id: neighbors
+        anchors.fill: parent
+
+        Connections {
+            target: parking
+            onPlaceArrayChanged: neighbors.requestPaint()
+        }
+        Connections {
+            target: Singletons.common
+            onReset: neighbors.requestPaint()
+            onStart: neighbors.requestPaint()
+            onClear: neighbors.requestPaint()
+        }
+        visible: Singletons.common.visibleGraph === 0
+        onPaint: {
+            var ctx = neighbors.getContext("2d");
+
+            ctx.clearRect (0, 0, neighbors.width, neighbors.height);
+            ctx.strokeStyle = Qt.rgba(0, 0, 0, 1);
+            ctx.lineWidth = 3;
+            ctx.beginPath ();
+
+            for(var i = root.firstPlaceIndex; i < root.firstPlaceIndex + root.countOfPlaces; i++) {
+                if (!parking.placeArray[i]) continue;
+                for(var j = 0; j < parking.placeArray[i].neighbors.length; j++) {
+                    ctx.moveTo(parking.placeArray[i].x +  parking.placeArray[i].width / 2 - root.x, parking.placeArray[i].y +  parking.placeArray[i].height / 2 - root.y);
+                    var p = parking.placeArray[parking.placeArray[i].neighbors[j]]
+                    ctx.lineTo(p.x +  p.width / 2 - root.x, p.y +  p.height / 2 - root.y);
+                }
+            }
+            ctx.stroke();
+            ctx.closePath();
+        }
+    }
+
+    Canvas {
+        id: neighborRoad
+        anchors.fill: parent
+
+        Connections {
+            target: parking
+            onPlaceArrayChanged: neighborRoad.requestPaint()
+        }
+        Connections {
+            target: Singletons.common
+            onReset: neighborRoad.requestPaint()
+            onStart: neighborRoad.requestPaint()
+            onClear: neighborRoad.requestPaint()
+        }
+        visible: Singletons.common.visibleGraph === 1
+        onPaint: {
+            var ctx = neighborRoad.getContext("2d");
+
+            ctx.clearRect (0, 0, neighborRoad.width, neighborRoad.height);
+            ctx.strokeStyle = Qt.rgba(0, 0, 0, 1);
+            ctx.lineWidth = 3;
+            ctx.beginPath ();
+
+            for(var i = root.firstPlaceIndex; i < root.firstPlaceIndex + root.countOfPlaces; i++) {
+                if (!parking.placeArray[i]) continue;
+                for(var j = 0; j < parking.placeArray[i].neighborRoad.length; j++) {
+                    ctx.moveTo(parking.placeArray[i].x +  parking.placeArray[i].width / 2 - root.x, parking.placeArray[i].y +  parking.placeArray[i].height / 2 - root.y);
+                    var p = parking.placeArray[parking.placeArray[i].neighborRoad[j]]
+                    ctx.lineTo(p.x +  p.width / 2 - root.x, p.y +  p.height / 2 - root.y);
+                }
+            }
+            ctx.stroke();
+            ctx.closePath();
+        }
+    }
+
+    Canvas {
+        id: neighborPlaces
+        anchors.fill: parent
+
+        Connections {
+            target: parking
+            onPlaceArrayChanged: neighborPlaces.requestPaint()
+        }
+        Connections {
+            target: Singletons.common
+            onReset: neighborPlaces.requestPaint()
+            onStart: neighborPlaces.requestPaint()
+            onClear: neighborPlaces.requestPaint()
+        }
+        visible: Singletons.common.visibleGraph === 2
+        onPaint: {
+            var ctx = neighborPlaces.getContext("2d");
+
+            ctx.clearRect (0, 0, neighborPlaces.width, neighborPlaces.height);
+            ctx.strokeStyle = Qt.rgba(0, 0, 0, 1);
+            ctx.beginPath ();
+
+            ctx.lineWidth = 3;
+
+            for(var i = root.firstPlaceIndex; i < root.firstPlaceIndex + root.countOfPlaces; i++) {
+                if (!parking.placeArray[i]) continue;
+                for(var j = 0; j < parking.placeArray[i].neighborPlaces.length; j++) {
+                    var p = parking.placeArray[parking.placeArray[i].neighborPlaces[j]]
+                    if (!p) continue;
+
+                    ctx.moveTo(parking.placeArray[i].x +  parking.placeArray[i].width / 2 - root.x, parking.placeArray[i].y +  parking.placeArray[i].height / 2 - root.y);
+                    ctx.lineTo(p.x +  p.width / 2 - root.x, p.y +  p.height / 2 - root.y);
+                }
+            }
+            ctx.stroke();
+            ctx.closePath();
+        }
+    }
+
 
     Rectangle {
         id: big

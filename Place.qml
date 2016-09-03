@@ -28,6 +28,7 @@ Rectangle {
         target: Singletons.common
         onReset: root.destroy();
         onStart: root.destroy();
+        onClear: root.destroy();
     }
 
     width: 50
@@ -37,4 +38,9 @@ Rectangle {
     color: isRoad ? "steelBlue" : "grey"
     opacity: 0.5
     border.color: "black"
+
+    Text{
+        anchors.centerIn: parent
+        text: root.index
+    }
 }

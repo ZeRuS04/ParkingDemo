@@ -16,4 +16,5 @@ QtObject {
     property int visibleState: 0
     signal start()
     signal reset()
+    signal clear()
 }

@@ -11,7 +11,21 @@ Item {
     property int vertexCount: vertexes.length
 
     property var vertexes: []
-    property var isConcaveVertex: []
+    property var isConcaveVertex: {
+        var arr = [];
+        for(var i = 0; i < vertexes.length; i++) {
+            if(i === 0)
+                arr[vertexCount - 1] = angle(vertexCount - 1) > 180;
+            else
+                arr[i-1] = angle(i-1) > 180;
+            arr[i] = angle(i) > 180;
+            if(i === vertexCount-1)
+                arr[0] = angle(0) > 180;
+            else
+                arr[i+1] = angle(i+1) > 180;
+        }
+        return arr;
+    }
 
     property var __allPoints: []
     property var rects: []
@@ -96,145 +110,46 @@ Item {
     }
 
     function fillParking() {
-        /*for (var i = 0; i < intersectPoints.length; i++) {
-            generateRect(intersectPoints[i].index, intersectPoints[i].point);
-        }*/
-        generateRects();
-        if (vertexes.length === 4) {
-            while (__allPoints.length !== 0) {
-                var point = __allPoints.pop();
-                console.log(vertexes.indexOf(point), point);
-                generateRect(vertexes.indexOf(point), point);
-            }
-        }
-
-        var component = Qt.createComponent("ParkingRect.qml");
-        for(var r = 0; r < rects.length; r++) {
-            var rectObject = component.createObject(parking, {"width": rects[r].width, "height": rects[r].height,
-                                                        "x": rects[r].x, "y": rects[r].y });
-            parkingRectList.push(rectObject);
-        }
-
-        console.log("Total %1 rect generated".arg(rects.length));
-    }
-
-    function generateRect(i, newPoint) {
-        var newRect = Qt.rect(-1,-1,0,0);
-        var point = vertexes[i];
-
-        var leftIndex = i,
-                rightIndex = i,
-                leftPoint = point,
-                rightPoint = point,
-                lastPoint;
-        do {
-            lastPoint = leftPoint;
-            leftIndex = leftIndex === 0 ? vertexCount - 1 : leftIndex - 1;
-            leftPoint = vertexes[leftIndex]
-
-            if(__allPoints.indexOf(leftPoint) !== -1)
-                __allPoints.splice(__allPoints.indexOf(leftPoint), 1);
-
-            for (var k = 0; k < intersectPoints.length; k++) {
-                if (intersectPoints[k].index === i)
-                    continue;
-                var tmpP = MathUtils.intersect(leftPoint, lastPoint,
-                                               intersectPoints[k].point, vertexes[intersectPoints[k].index]);
-                if ((tmpP.x !== -1 || tmpP.y !== -1) && tmpP !== leftPoint && tmpP !== lastPoint) {
-                    if (tmpP.x === newPoint.x || tmpP.y === newPoint.y)
-                        leftPoint = vertexes[intersectPoints[k].index];
-                    else
-                        leftPoint = tmpP;
-                    break;
-                }
-            }
-        } while(!isConcaveVertex[leftIndex] && (leftPoint.x === newPoint.x || leftPoint.y === newPoint.y));
-
-        if (isConcaveVertex[leftIndex] && (leftPoint.x === newPoint.x || leftPoint.y === newPoint.y)) {
-            for (var j = 0; j < intersectPoints.length; j++) {
-                if (intersectPoints[j].index === leftIndex) {
-                    leftPoint = intersectPoints[j].point;
-                    break;
-                }
-            }
-        }
-
-        newRect.width = Math.abs(newPoint.x - leftPoint.x);
-        newRect.height = Math.abs(newPoint.y - leftPoint.y);
-        newRect.x = Math.min(newPoint.x, leftPoint.x);
-        newRect.y = Math.min(newPoint.y, leftPoint.y);
-
-        if(parking.rects.indexOf(newRect) === -1)
-            parking.rects.push(newRect);
-
-        newRect = Qt.rect(-1,-1,0,0);
-        do {
-            lastPoint = rightPoint;
-            rightIndex = rightIndex === vertexCount - 1 ? 0 : rightIndex + 1;
-            rightPoint = vertexes[rightIndex]
-
-            if(__allPoints.indexOf(rightPoint) !== -1)
-                __allPoints.splice(__allPoints.indexOf(rightPoint), 1);
-
-            for (var k = 0; k < intersectPoints.length; k++) {
-                if (intersectPoints[k].index === i)
-                    continue;
-                var tmpP = MathUtils.intersect(rightPoint, lastPoint,
-                                               intersectPoints[k].point, vertexes[intersectPoints[k].index]);
-                if ((tmpP.x !== -1 || tmpP.y !== -1) && tmpP !== rightPoint && tmpP !== lastPoint) {
-                    if (tmpP.x === newPoint.x || tmpP.y === newPoint.y)
-                        rightPoint = vertexes[intersectPoints[k].index];
-                    else
-                        rightPoint = tmpP;
-                    break;
-                }
-            }
-        } while(!isConcaveVertex[rightIndex] && (rightPoint.x === newPoint.x || rightPoint.y === newPoint.y));
-
-        if (isConcaveVertex[rightIndex]) {
-            for (var j = 0; j < intersectPoints.length; j++) {
-                if (intersectPoints[j].index === rightIndex) {
-                    rightPoint = intersectPoints[j].point;
-                    break;
-                }
-            }
-        }
-        newRect.width = Math.abs(newPoint.x - rightPoint.x);
-        newRect.height = Math.abs(newPoint.y - rightPoint.y);
-        newRect.x = Math.min(newPoint.x, rightPoint.x);
-        newRect.y = Math.min(newPoint.y, rightPoint.y);
-
-        if(__allPoints.indexOf(newPoint) !== -1)
-            __allPoints.splice(__allPoints.indexOf(newPoint), 1);
-
-        if(parking.rects.indexOf(newRect) === -1)
-            parking.rects.push(newRect);
-    }
-
-    function generateRects(){
         var allPoints = __allPoints;
+        var bonus = 0
+        var component = Qt.createComponent("ParkingRect.qml");
         while (allPoints.length > 4) {
-            var rectVertexes = findRectVertexes(allPoints[0], allPoints[1], allPoints);
+            var rectVertexes = findRectVertexes(allPoints[0+bonus], allPoints[1+bonus], allPoints);
 
-            allPoints = removeExtraVertex(rectVertexes, allPoints);
-
+            if (rectVertexes.length === 0) {
+                bonus++;
+                var p = allPoints[0];
+                allPoints.splice(allPoints.indexOf(p), 1);
+//                allPoints.push(p);
+                continue;
+            }
+            allPoints = removeExtraVertex(rectVertexes, allPoints, allPoints[0+bonus]);
             var newRect = rectFromArray(rectVertexes);
 
             console.log("New rect finded: ",  newRect);
-            if(parking.rects.indexOf(newRect) === -1)
+            if(parking.rects.indexOf(newRect) === -1) {
                 parking.rects.push(newRect);
+                var rectObject = component.createObject(parking, {"width": newRect.width, "height": newRect.height,
+                                                                  "x":     newRect.x,     "y":      newRect.y });
+                parkingRectList.push(rectObject);
+            }
         }
-         if (allPoints.length === 4) {
-             newRect = rectFromArray(allPoints);
-             console.log("New rect finded: ",  newRect);
-             if(parking.rects.indexOf(newRect) === -1)
-                 parking.rects.push(newRect);
-         }
+        if (allPoints.length === 4) {
+            newRect = rectFromArray(allPoints);
+            console.log("New rect finded: ",  newRect);
+            if(parking.rects.indexOf(newRect) === -1) {
+                parking.rects.push(newRect);
+                var rectObject = component.createObject(parking, {"width": newRect.width, "height": newRect.height,
+                                                                  "x":     newRect.x,     "y":      newRect.y });
+                parkingRectList.push(rectObject);
+            }
+        }
+        console.log("Total %1 rect generated".arg(parkingRectList.length));
     }
 
-    function removeExtraVertex (rectVertexes, array) {
+    function removeExtraVertex (rectVertexes, array, p1) {
         for (var i = 0; i < rectVertexes.length; i++) {
-            if ((vertexes.indexOf(rectVertexes[i])) !== -1) {
+            if ((vertexes.indexOf(rectVertexes[i])) !== -1 || rectVertexes[i] === p1) {
                 array.splice(array.indexOf(rectVertexes[i]), 1);
             }
         }
@@ -245,14 +160,14 @@ Item {
         console.log("========Start findRectVertexes: ", point1, point2, array)
         var key, antikey, delta, findPoints = [];
 
-        // Выберемо по какой кординатеискать точки
+        // Выберемо по какой кординате искать точки
         if (point1.x === point2.x) {
             key = "y";
             antikey = "x";
         } else if (point1.у === point2.у) {
             key = "x";
             antikey = "y";
-        } else console.assert("CRITICAL ERROR");
+        } else console.log("CRITICAL ERROR");
 
         delta = Math.abs(point1[key] - point2[key]);
 
@@ -287,142 +202,120 @@ Item {
 
         return Qt.rect(arrX[0], arrY[0], arrX[3] - arrX[0], arrY[3] - arrY[0])
     }
-/*
-    function splitParking() {
-        var hLines = [];
-        var vLines = [];
-        var line, offset = 0;
-        console.log(__allPoints.length, __allPoints)
 
+    function splitParking() {
+        var newVertexes = [];
+        // Пройдем по всем внутренним вершинам:
         for(var i = 0; i < vertexCount; i++) {
             __allPoints.push(vertexes[i]);
-
-            line = {"p1":vertexes[i], "p2":(i === vertexCount -1 ? vertexes[0] : vertexes[i+1])}
-            if (line.p1.x !== line.p2.x)
-                hLines.push(line);
-            else
-                vLines.push(line);
-        }
-
-            // Пройдем по всем вершинам
-        for(var i = 0; i < vertexCount; i++) {
-            if (!isConcaveVertex[i])
-                continue;
-            // Если вершина вогнутая
-            var intersectPoint, intersectPoints = [];
-            var point = vertexes[i];
-            // Рассмотрим соседнюю вершину слева
-            var leftPoint = i === 0 ? vertexes[vertexCount - 1] : vertexes[i-1]
-            if(leftPoint.x === point.x) {
-                // Проверим пересечения с горизонтальными линиями
-                for (var j = 0; j < hLines.length; j++) {
-                    if(leftPoint.y < point.y) {
-                        intersectPoint = MathUtils.intersect(hLines[j].p1, hLines[j].p2, point, Qt.point(point.x, parking.height))
-                        if (intersectPoint.x !== -1 && intersectPoint.y !== -1 && MathUtils.lineLength(point, intersectPoint) > 0 &&
-                                leftPoint !== intersectPoint) {
-                            intersectPoints.push({"p": intersectPoint, "length": MathUtils.lineLength(point, intersectPoint)})
-
-                        }
-                    } else {
-                        intersectPoint = MathUtils.intersect(hLines[j].p1, hLines[j].p2, point, Qt.point(point.x, 0))
-                        if (intersectPoint.x !== -1 && intersectPoint.y !== -1 && MathUtils.lineLength(point, intersectPoint) > 0 &&
-                                leftPoint !== intersectPoint) {
-                            intersectPoints.push({"p": intersectPoint, "length": MathUtils.lineLength(point, intersectPoint)})
-                        }
-                    }
-                }
-            } else {
-                // Проверим пересечения с вертикальными линиями
-                for (var j = 0; j < vLines.length; j++) {
-                    if(leftPoint.x < point.x) {
-                        intersectPoint = MathUtils.intersect(vLines[j].p1, vLines[j].p2, point, Qt.point(parking.width, point.y))
-                        if (intersectPoint.x !== -1 && intersectPoint.y !== -1 && MathUtils.lineLength(point, intersectPoint) > 0 &&
-                                leftPoint !== intersectPoint) {
-                            intersectPoints.push({"p": intersectPoint, "length": MathUtils.lineLength(point, intersectPoint)})
-                        }
-                    } else {
-                        intersectPoint = MathUtils.intersect(vLines[j].p1, vLines[j].p2, point, Qt.point(0, point.y))
-                        if (intersectPoint.x !== -1 && intersectPoint.y !== -1 && MathUtils.lineLength(point, intersectPoint) > 0 &&
-                                leftPoint !== intersectPoint) {
-                            intersectPoints.push({"p": intersectPoint, "length": MathUtils.lineLength(point, intersectPoint)})
-                        }
-                    }
-                }
-            }
-
-            // Рассмотрим соседнюю вершину справа
-            var rightPoint = i === vertexCount - 1 ? vertexes[0] : vertexes[i+1]
-            if(rightPoint.x === point.x) {
-                // Проверим пересечения с горизонтальными линиями
-                for (var j = 0; j < hLines.length; j++) {
-                    if(leftPoint.y < point.y) {
-                        intersectPoint = MathUtils.intersect(hLines[j].p1, hLines[j].p2, point, Qt.point(point.x, parking.height))
-                        if (intersectPoint.x !== -1 && intersectPoint.y !== -1 && MathUtils.lineLength(point, intersectPoint) > 0 &&
-                                rightPoint !== intersectPoint) {
-                            intersectPoints.push({"p": intersectPoint, "length": MathUtils.lineLength(point, intersectPoint)})
-                        }
-                    } else {
-                        intersectPoint = MathUtils.intersect(hLines[j].p1, hLines[j].p2, point, Qt.point(point.x, 0))
-                        if (intersectPoint.x !== -1 && intersectPoint.y !== -1 && MathUtils.lineLength(point, intersectPoint) > 0 &&
-                                rightPoint !== intersectPoint) {
-                            intersectPoints.push({"p": intersectPoint, "length": MathUtils.lineLength(point, intersectPoint)})
-                        }
-                    }
-                }
-            } else {
-                // Проверим пересечения с вертикальными линиями
-                for (var j = 0; j < vLines.length; j++) {
-                    if(rightPoint.x < point.x) {
-                        intersectPoint = MathUtils.intersect(vLines[j].p1, vLines[j].p2, point, Qt.point(parking.width, point.y))
-                        if (intersectPoint.x !== -1 && intersectPoint.y !== -1 && MathUtils.lineLength(point, intersectPoint) > 0 &&
-                                rightPoint !== intersectPoint) {
-                            intersectPoints.push({"p": intersectPoint, "length": MathUtils.lineLength(point, intersectPoint)})
-                        }
-                    } else {
-                        intersectPoint = MathUtils.intersect(vLines[j].p1, vLines[j].p2, point, Qt.point(0, point.y))
-                        if (intersectPoint.x !== -1 && intersectPoint.y !== -1 && MathUtils.lineLength(point, intersectPoint) > 0 &&
-                                rightPoint !== intersectPoint) {
-                            intersectPoints.push({"p": intersectPoint, "length": MathUtils.lineLength(point, intersectPoint)})
-                        }
-                    }
-                }
-            }
-
-            //Пройдем по всем найденым вариантам и найдем кратчайший
-            var newPoint;
-            var currentLength = Math.max(parking.width, parking.height);
-            for(var k = 0; k < intersectPoints.length; k++) {
-                if (currentLength > intersectPoints[k].length) {
-                    newPoint = intersectPoints[k].p;
-                    currentLength = intersectPoints[k].length
-                }
-            }
-            parking.intersectPoints.push({"point": newPoint, "length": currentLength, "index": i});
-
-            // добавили новую линию в массив что бы избежать наложений
-            line = {"p1":newPoint, "p2":point};
-            if (newPoint.x === point.x)
-                vLines.push(line)
-            else
-                hLines.push(line)
-            __allPoints.push(newPoint);
-        }
-        console.log("All points: ", __allPoints)
-
-        fillParking(i, newPoint);
-
-        __allPointsChanged();
-    }
-*/
-    function splitParking() {
-        fillParking(i, newPoint);
-
-        for(var i = 0; i < vertexCount; i++) {
             if (!isConcaveVertex[i])
                 continue;
 
+            // Для каждой внутренней вершины продолжим отрезки до ближайших пересечений
+            var concavePoint = vertexes[i],
+                prevPoint = i === 0 ? vertexes[vertexes.length - 1] : vertexes[i-1],
+                nextPoint = i === (vertexes.length - 1) ? vertexes[0] : vertexes[i+1];
+
+            // Найдем горизонтальные пересечения:
+            var pairPoint = prevPoint.y === concavePoint.y ? prevPoint  // выбересм соседнюю точку по горизонтали
+                                                           : nextPoint;
+            var intersectHPoint = Qt.point(pairPoint.x > concavePoint.x ? 0 : parking.width, concavePoint.y), // получим тестовую точку для отрезка
+                intersectHIndex = 0; // и её индекс в массиве
+
+            // пройдем по всем ИЗВЕСТНЫМ отрезкам
+            for (var p = 0; p < vertexes.length; p++) {
+                var p1 = vertexes[p],
+                    p2 = p === (vertexes.length - 1) ? vertexes[0] : vertexes[p+1];
+                if (p1 === concavePoint || p2 === concavePoint || p1.y === p2.y) {
+                    // Пропускаем горизонтальные отрезки и отрезки вершиной которых является текущая concavePoint
+                    continue;
+                }
+
+                var foundPoint = MathUtils.intersect(p1, p2, concavePoint, intersectHPoint) // найдем пересечение
+//                console.log("###H", p, foundPoint, p1, p2, intersectHPoint, MathUtils.lineLength(foundPoint, concavePoint),  MathUtils.lineLength(intersectVPoint, concavePoint))
+
+                if (foundPoint.x >= 0 && foundPoint.y >= 0 &&
+                        MathUtils.lineLength(foundPoint, concavePoint) < MathUtils.lineLength(intersectHPoint, concavePoint)) {
+                    intersectHPoint = foundPoint; // если длинна отрезка минимальная - зафиксируем
+                    intersectHIndex = p + 1;
+                }
+            }
+            /// Так же пройдем по всем созданным отрезкам
+            for(var n = 0; n < newVertexes.length; n++) {
+                var p1 = newVertexes[n].point,
+                    p2 = newVertexes[n].point2;
+                var foundPoint = MathUtils.intersect(p1, p2, concavePoint, intersectHPoint) // найдем пересечение
+                if (foundPoint.x >= 0 && foundPoint.y >= 0 &&
+                        MathUtils.lineLength(foundPoint, concavePoint) < MathUtils.lineLength(intersectHPoint, concavePoint)) {
+                    intersectHPoint = foundPoint; // если длинна отрезка минимальная - зафиксируем
+                    intersectHIndex = vertexes.length - 1;
+                }
+            }
+
+            // Найдем вертикальные пересечения:
+            pairPoint = prevPoint.x === concavePoint.x ? prevPoint  // выбересм соседнюю точку по вертикали
+                                                       : nextPoint;
+            var intersectVPoint = Qt.point(concavePoint.x, pairPoint.y > concavePoint.y ? 0 : parking.height), // получим тестовую точку для отрезка
+                intersectVIndex = 0; // и её индекс в массиве
+
+            // пройдем по всем ИЗВЕСТНЫМ отрезкам
+            for (var p = 0; p < vertexes.length; p++) {
+                var p1 = vertexes[p],
+                    p2 = p === (vertexes.length - 1) ? vertexes[0] : vertexes[p+1];
+                if (p1 === concavePoint || p2 === concavePoint || p1.x === p2.x) {
+                    // Пропускаем горизонтальные отрезки и отрезки вершиной которых является текущая concavePoint
+                    continue;
+                }
+
+                var foundPoint = MathUtils.intersect(p1, p2, concavePoint, intersectVPoint) // найдем пересечение
+//                console.log("###V", p, foundPoint, p1, p2, intersectVPoint, MathUtils.lineLength(foundPoint, concavePoint),  MathUtils.lineLength(intersectVPoint, concavePoint))
+                if (foundPoint.x >= 0 && foundPoint.y >= 0 &&
+                        MathUtils.lineLength(foundPoint, concavePoint) < MathUtils.lineLength(intersectVPoint, concavePoint)) {
+                    intersectVPoint = foundPoint; // если длинна отрезка минимальная - зафиксируем
+                    intersectVIndex = p + 1;
+                }
+            }
+            /// Так же пройдем по всем созданным отрезкам
+            for(var n = 0; n < newVertexes.length; n++) {
+                var p1 = newVertexes[n].point,
+                    p2 = newVertexes[n].point2;
+                var foundPoint = MathUtils.intersect(p1, p2, concavePoint, intersectVPoint) // найдем пересечение
+                if (foundPoint.x >= 0 && foundPoint.y >= 0 &&
+                        MathUtils.lineLength(foundPoint, concavePoint) < MathUtils.lineLength(intersectVPoint, concavePoint)) {
+                    intersectVPoint = foundPoint; // если длинна отрезка минимальная - зафиксируем
+                    intersectVIndex = vertexes.length - 1;
+                }
+            }
+
+            if (MathUtils.lineLength(intersectHPoint, concavePoint) < MathUtils.lineLength(intersectVPoint, concavePoint)) {
+                if (vertexes.indexOf(intersectHPoint) === -1)
+                    newVertexes.push({"point": intersectHPoint, "point2": concavePoint, "index": intersectHIndex});
+            } else {
+                if (vertexes.indexOf(intersectVPoint) === -1)
+                    newVertexes.push({"point": intersectVPoint, "point2": concavePoint, "index": intersectVIndex});
+            }
         }
 
+        // ЦИКЛ вставки новых точек в массив всех точек
+        var displacement = 0, disPoint = vertexCount;
+        for(var i = 0; i < newVertexes.length; i++) {
+            var index = newVertexes[i].index,
+                point = newVertexes[i].point,
+                bonus = 0;
+
+            if (__allPoints.indexOf(point) !== -1)
+                continue;
+
+            for(var j = 0; j < i; j++) {
+                if (newVertexes[j].index < index)
+                    bonus++;
+            }
+
+            console.log("   ###", i, index, bonus, point, __allPoints);
+            __allPoints.splice(index + bonus, 0, point);
+        }
+
+        vertexesChanged()
         __allPointsChanged();
     }
 
@@ -440,12 +333,14 @@ Item {
         onStart: {
             parkingRectList.length = 0;
             splitParking();
+            fillParking();
 
             for(var i = 0; i < parkingRectList.length; i++) {
                 parkingRectList[i].start();
             }
         }
         onReset: {
+            parking.placeArray.length = 0;
             parking.__allPoints.length = 0;
             parking.__allPointsChanged();
             parking.intersectPoints.length = 0;
@@ -455,6 +350,15 @@ Item {
             parking.vertexesChanged();
             parking.currentIndex = 0;
             parking.parkingRectList.length = 0;
+            canvas.requestPaint();
+        }
+        onClear: {
+            parking.placeArray.length = 0;
+            parking.__allPoints.length = 0;
+            parking.__allPointsChanged();
+            parking.intersectPoints.length = 0;
+            parking.rects.length = 0;
+            parking.isConcaveVertex.length = 0;
             canvas.requestPaint();
         }
     }
@@ -487,109 +391,6 @@ Item {
             }
             ctx.stroke();
 
-            ctx.closePath();
-        }
-    }
-
-    Canvas {
-        id: neighbors
-        anchors.fill: parent
-
-        Connections {
-            target: parking
-            onPlaceArrayChanged: neighbors.requestPaint()
-        }
-        Connections {
-            target: Singletons.common
-            onReset: neighbors.requestPaint()
-            onStart: neighbors.requestPaint()
-        }
-        visible: Singletons.common.visibleGraph === 0
-        onPaint: {
-            var ctx = neighbors.getContext("2d");
-
-            ctx.clearRect (0, 0, neighbors.width, neighbors.height);
-            ctx.strokeStyle = Qt.rgba(0, 0, 0, 1);
-            ctx.lineWidth = 3;
-            ctx.beginPath ();
-
-            for(var i = 0; i < placeArray.length; i++) {
-                for(var j = 0; j < placeArray[i].neighbors.length; j++) {
-                    ctx.moveTo(placeArray[i].x +  placeArray[i].width / 2, placeArray[i].y +  placeArray[i].height / 2);
-                    var p = placeArray[placeArray[i].neighbors[j]]
-                    ctx.lineTo(p.x +  p.width / 2, p.y +  p.height / 2);
-                }
-            }
-            ctx.stroke();
-            ctx.closePath();
-        }
-    }
-
-    Canvas {
-        id: neighborRoad
-        anchors.fill: parent
-
-        Connections {
-            target: parking
-            onPlaceArrayChanged: neighborRoad.requestPaint()
-        }
-        Connections {
-            target: Singletons.common
-            onReset: neighborRoad.requestPaint()
-            onStart: neighborRoad.requestPaint()
-        }
-        visible: Singletons.common.visibleGraph === 1
-        onPaint: {
-            var ctx = neighborRoad.getContext("2d");
-
-            ctx.clearRect (0, 0, neighborRoad.width, neighborRoad.height);
-            ctx.strokeStyle = Qt.rgba(0, 0, 0, 1);
-            ctx.lineWidth = 3;
-            ctx.beginPath ();
-
-            for(var i = 0; i < placeArray.length; i++) {
-                for(var j = 0; j < placeArray[i].neighborRoad.length; j++) {
-                    ctx.moveTo(placeArray[i].x +  placeArray[i].width / 2, placeArray[i].y +  placeArray[i].height / 2);
-                    var p = placeArray[placeArray[i].neighborRoad[j]]
-                    ctx.lineTo(p.x +  p.width / 2, p.y +  p.height / 2);
-                }
-            }
-            ctx.stroke();
-            ctx.closePath();
-        }
-    }
-
-    Canvas {
-        id: neighborPlaces
-        anchors.fill: parent
-
-        Connections {
-            target: parking
-            onPlaceArrayChanged: neighborPlaces.requestPaint()
-        }
-        Connections {
-            target: Singletons.common
-            onReset: neighborPlaces.requestPaint()
-            onStart: neighborPlaces.requestPaint()
-        }
-        visible: Singletons.common.visibleGraph === 2
-        onPaint: {
-            var ctx = neighborPlaces.getContext("2d");
-
-            ctx.clearRect (0, 0, neighborPlaces.width, neighborPlaces.height);
-            ctx.strokeStyle = Qt.rgba(0, 0, 0, 1);
-            ctx.beginPath ();
-
-            ctx.lineWidth = 3;
-
-            for(var i = 0; i < placeArray.length; i++) {
-                for(var j = 0; j < placeArray[i].neighborPlaces.length; j++) {
-                    ctx.moveTo(placeArray[i].x +  placeArray[i].width / 2, placeArray[i].y +  placeArray[i].height / 2);
-                    var p = placeArray[placeArray[i].neighborPlaces[j]]
-                    ctx.lineTo(p.x +  p.width / 2, p.y +  p.height / 2);
-                }
-            }
-            ctx.stroke();
             ctx.closePath();
         }
     }
