@@ -13,12 +13,13 @@ Window {
     title: qsTr("Parking demo")
     visible: true
 
-    width: 980
-    height: 600
-//    width: 1980
-//    height: 1080
+//    width: 980
+//    height: 600
+    width: 1600
+    height: 960
 
     Area {
+        id: area
         anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.bottom: data.top
     }
 
@@ -75,12 +76,12 @@ Window {
                      text: " h=";
                  }
                  SpinBox{
-                     id: placeHeigh
+                     id: placeHeight
                      width: 100
                      value: Singletons.common.placeHeight
                      minimumValue: 2
                      maximumValue: 10000
-                     onValueChanged: Singletons.common.placeHeigh = placeHeigh.value
+                     onValueChanged: Singletons.common.placeHeight = placeHeight.value
                  }
                  Text{
                      text: "Visible:";
@@ -89,7 +90,7 @@ Window {
                      id: graphState
                      width: 100
                      model: [ "Main graph", "Road graph", "Access Graph", "None"]
-
+                     currentIndex: 3
                      onCurrentIndexChanged: Singletons.common.visibleGraph = currentIndex;
                  }
                  ComboBox {
@@ -99,17 +100,113 @@ Window {
 
                      onCurrentIndexChanged: Singletons.common.visibleState = currentIndex;
                  }
+
              }
 
+             Row {
+
+                 Layout.fillHeight: true
+                 Layout.fillWidth: true
+                 Layout.columnSpan: 2
+
+                 spacing: 20
+                 TextEdit {
+                     id: saveKey
+                     width: 120
+                 }
+
+                 Button{
+                     width: 70
+                    text: "Save"
+                    enabled: saveKey.text !== ""
+                    onClicked: {
+                        Singletons.common.save(saveKey.text, area.vertexes);
+                    }
+                 }
+                 ComboBox {
+                     id: saved
+                     width: 100
+                     model: Singletons.common.keys
+                     onModelChanged: currentIndex = -1
+                 }
+
+                 Button{
+                    text: "Load"
+
+                    Layout.fillHeight: true
+                    enabled: saved.currentText !== ""
+
+                    onClicked: {
+                        Singletons.common.reset();
+                        area.vertexes = Singletons.common.load(saved.currentText);
+                    }
+                 }
+
+                 Button{
+                    text: "Remove"
+
+                    Layout.fillHeight: true
+                    enabled: saved.currentText !== ""
+
+                    onClicked: {
+                        Singletons.common.remove(saved.currentText);
+                    }
+                 }
+                 Button{
+                    text: "Clear"
+
+                    Layout.fillHeight: true
+                    enabled: saved.currentText !== ""
+
+                    onClicked: {
+                        Singletons.common.clearAll();
+                    }
+                 }
+             }
              Button{
                 text: "Start"
 
                 Layout.fillHeight: true
                 Layout.fillWidth: true
-                Layout.columnSpan: 2
+                Layout.columnSpan: 1
 
                 onClicked: {
                     Singletons.common.start();
+                }
+             }
+             Button{
+                text: "Generate Maps"
+
+                Layout.fillHeight: true
+
+                onClicked: {
+                    Singletons.common.genMaps();
+                }
+             }
+
+             Button{
+                text: "Send auto"
+
+                Layout.fillHeight: true
+
+                onClicked: {
+                    Singletons.common.sendAuto();
+                }
+             }
+
+             Button{
+                text: Singletons.common.state !== 1 ? "Add Entry"
+                                                    : "End"
+
+                Layout.fillHeight: true
+                Layout.fillWidth: true
+                Layout.columnSpan: 1
+
+                onClicked: {
+                    if (Singletons.common.state !== 1)
+                        Singletons.common.state = 1;
+                    else
+                        Singletons.common.state = 0;
                 }
              }
 
@@ -124,6 +221,7 @@ Window {
                     Singletons.common.reset();
                 }
              }
+
              Button{
                 text: "Clear"
 

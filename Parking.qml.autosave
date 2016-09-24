@@ -448,7 +448,7 @@ Item {
 
         parking.pathArray.forEach(function(entry) {
             console.log("####", entry)
-            parking.pathArray[entry].path.forEach(function(e, index) {
+            parking.pathArray.path.forEach(function(e, index) {
                 console.log("####", index, e)
             })
         })

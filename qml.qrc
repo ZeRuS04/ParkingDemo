@@ -8,5 +8,6 @@
         <file>singletons/qmldir</file>
         <file>singletons/Common.qml</file>
         <file>Link.qml</file>
+        <file>Auto.qml</file>
     </qresource>
 </RCC>

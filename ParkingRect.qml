@@ -1,6 +1,7 @@
 import QtQuick 2.0
 
 import "./singletons" as Singletons
+import My.Utils 1.0
 
 Rectangle {
     id: root
@@ -12,6 +13,7 @@ Rectangle {
     property real placeHeight: Singletons.common.placeHeight
     property var streetBegins: []
 
+    property real boundLength: 0xffffffff;
     property int firstPlaceIndex
     property int countOfPlaces
 
@@ -32,21 +34,89 @@ Rectangle {
 
     property real shortOffset: bigIsland.height < w ? bigIsland.height / 2 : 0
     property real longOffset: smallIsland.height / 2
+
     color: "#44999999"
     border.color: "black"
     clip: false
     
     function start() {
         firstPlaceIndex = parking.placeArray.length;
+//        findNeighborRect();
         fillMainIsland();
         fillBigIsland();
         mergeStreets();
         countOfPlaces = parking.placeArray.length - firstPlaceIndex;
-
         neighbors.requestPaint()
         neighborRoad.requestPaint()
         neighborPlaces.requestPaint()
     }
+
+    function connectNeighborRect() {
+        for (var i = 0; i < links.length; i++) {
+            var neighbor = links[i]["neighbor"];
+            var boundaryPlaces = links[i]["boundaryPlaces"];
+            var line = links[i]["line"];
+            var neighBoundPlaces;
+            for (var index = 0; index < neighbor.links.length; index++) {
+                neighBoundPlaces = neighbor.links[index]["boundaryPlaces"];
+                if (neighbor.links[index]["line"] === line)
+                    break;
+            }
+
+            boundaryPlaces.forEach(function(place) {
+                var myPair,
+                    minLength = 0xffffffff
+                for (var j = 0; j < neighBoundPlaces.length; j++) {
+                    var length = MathUtils.lineLength(Qt.point(place.x, place.y), Qt.point(neighBoundPlaces[j].x, neighBoundPlaces[j].y));
+                    if(length < minLength) {
+                        minLength = length;
+                        myPair = neighBoundPlaces[j];
+                    }
+                }
+
+                place.addNeighbors(myPair.index);
+                if (place.isRoad) {
+                    if (myPair.isRoad)
+                        place.addNeighborRoad(myPair.index - 1);
+                    place.addNeighborPlaces(myPair.index - 1);
+                }
+            });
+        }
+    }
+
+//    function findNeighborRect() {
+//        for (var i = 0; i < parking.parkingRectList.length; i++) {
+//            if (parking.parkingRectList[i].x === this.x && parking.parkingRectList[i].y === this.y)
+//                continue;
+//            var parkingRect = parking.parkingRectList[i]
+//            var points = [Qt.point(parkingRect.x, parkingRect.y), Qt.point(parkingRect.x + parkingRect.width, parkingRect.y),
+//                          Qt.point(parkingRect.x + parkingRect.width, parkingRect.y + parkingRect.height), Qt.point(parkingRect.x, parkingRect.y + parkingRect.height)];
+//            var mypoints = [Qt.point(x, y), Qt.point(x + width, y), Qt.point(x + width, y + height), Qt.point(x, y + height)];
+
+//            var intersectLine = []
+
+//            for (var j = 0; j < 4; j++) {
+//                var line = [points[j], j === 3 ? points[0] : points[j+1]];
+//                for (var k = 0; k < 4; k++) {
+//                    var myLine = [mypoints[k], k === 3 ? mypoints[0] : mypoints[k+1]];
+//                    var intersectPoint = MathUtils.intersect(line[0], line[1], myLine[0], myLine[1]);
+//                    if (intersectPoint.x === -1 && intersectPoint.y === -1)
+//                        continue;
+
+//                    if (intersectLine.indexOf(intersectPoint) === -1)
+//                        intersectLine.push(intersectPoint);
+//                    if (intersectLine.length === 2)
+//                        break;
+//                }
+//                if (intersectLine.length === 2)
+//                    break;
+//            }
+//            if (intersectLine.length < 2)
+//                continue;
+//            console.log("### Intersect Rect Line", intersectLine[0], intersectLine[1]);
+//            links.push({"neighbor": parking.parkingRectList[i], "line": intersectLine, "boundaryPlaces": []});
+//        }
+//    }
 
     function findRoad(place, path, maxDeep) {
         for (var neighbor = 0; neighbor < place.neighbors.length; neighbor++) {
@@ -190,7 +260,6 @@ Rectangle {
     function mergePlaces(place1, place2) {
         var placeIndex1 = place1.index,
             placeIndex2 = place2.index;
-        console.log("###", placeIndex1, place1, "\t", placeIndex2, place2)
         if (!place1 || !place2) {
             console.log("mergePlaces: ERROR.  Some place is null or undefined.");
             return;
@@ -235,10 +304,9 @@ Rectangle {
                 var place1 = component.createObject(root.parent, {"width": w, "height": h, "index":count,
                                                             "x": coordX, "y": coordY  });
                 var place2 = component.createObject(root.parent, {"width": w, "height": h,"index":count+2,
-                                                        "x": coordX + (!horizontal ? w+roadWidth : 0), "y": coordY + (horizontal ? h+roadHeight : 0) });
-
+                                                        "x": coordX + (!horizontal ? w + roadWidth : 0), "y": coordY + (horizontal ? h + roadHeight : 0) });
                 var road = component.createObject(root.parent, {"width": roadWidth ,  "height": roadHeight, "isRoad": true, "index":count+1,
-                                                      "x": coordX + (!horizontal ? w : 0), "y": coordY+ (horizontal ? h : 0) });
+                                                      "x": coordX + (!horizontal ? w : 0), "y": coordY + (horizontal ? h : 0) , "capacity": Singletons.common.roadCount});
 
                 place1.addNeighborPlaces(road.index); place1.addNeighbors(road.index);
                 if (j !== 0)
@@ -269,18 +337,83 @@ Rectangle {
                 if (i !== rows - 1) {
                     road.addNeighbors(road.index + columns * 3);
                     road.addNeighborRoad(road.index + columns * 3);
-                    road.addNeighborPlaces(road.index - columns * 3);
+                    road.addNeighborPlaces(road.index + columns * 3);
                 }
 
+                if (i === 0 || i === rows - 1 || j === 0 || j === columns - 1) {
+                    for (var l = 0; l < root.links.length; l++) {
+                        var boundLine = root.links[l]["line"],
+                                param = "",
+                                line1 = [],
+                                line2 = [],
+                                line3 = [];
+                        if (boundLine[0].x === boundLine[1].x) {
+                            line1 = place1.x > boundLine[0].x ? [Qt.point(place1.x, place1.y), Qt.point(0, place1.y)]
+                                                              : [Qt.point(place1.x, place1.y), Qt.point(parking.width, place1.y)]
+                            line2 = road.x > boundLine[0].x ? [Qt.point(road.x, road.y), Qt.point(0, road.y)]
+                                                            : [Qt.point(road.x, road.y), Qt.point(parking.width, road.y)]
+                            line3 = place2.x > boundLine[0].x ? [Qt.point(place2.x, place2.y), Qt.point(0, place2.y)]
+                                                              : [Qt.point(place2.x, place2.y), Qt.point(parking.width, place2.y)]
+                        } else {
+                            line1 = place1.y > boundLine[0].y ? [Qt.point(place1.x, place1.y), Qt.point(place1.x, 0)]
+                                                              : [Qt.point(place1.x, place1.y), Qt.point(place1.x, parking.height)]
+                            line2 = road.y > boundLine[0].y ? [Qt.point(road.x, road.y), Qt.point(road.x, 0)]
+                                                            : [Qt.point(road.x, road.y), Qt.point(road.x, parking.height)]
+                            line3 = place2.y > boundLine[0].y ? [Qt.point(place2.x, place2.y), Qt.point(place2.x, 0)]
+                                                              : [Qt.point(place2.x, place2.y), Qt.point(place2.x, parking.height)]
+                        }
+                        var intersectPoint;
+                        if (i === 0 || i === rows - 1 || j === 0) {
+                            intersectPoint = MathUtils.intersect(boundLine[0], boundLine[1], line1[0], line1[1]);
+
+                            if ((intersectPoint.x !== -1 || intersectPoint.y !== -1) &&
+                                    MathUtils.lineLength(intersectPoint, Qt.point(place1.x, place1.y)) <= boundLength) {
+                                if (MathUtils.lineLength(intersectPoint, Qt.point(place1.x, place1.y)) !== boundLength)
+                                    root.links[l]["boundaryPlaces"].length = 0;
+                                root.links[l]["boundaryPlaces"].push(place1);
+                                boundLength = MathUtils.lineLength(intersectPoint, Qt.point(place1.x, place1.y));
+                            }
+                        }
+
+                        if (i === 0 || i === rows - 1) {
+                            intersectPoint = MathUtils.intersect(boundLine[0], boundLine[1], line2[0], line2[1]);
+                            if ((intersectPoint.x !== -1 || intersectPoint.y !== -1) &&
+                                    MathUtils.lineLength(intersectPoint, Qt.point(road.x, road.y)) <= boundLength) {
+                                if (MathUtils.lineLength(intersectPoint, Qt.point(road.x, road.y)) !== boundLength)
+                                    root.links[l]["boundaryPlaces"].length = 0;
+                                root.links[l]["boundaryPlaces"].push(road);
+                                boundLength = MathUtils.lineLength(intersectPoint, Qt.point(road.x, road.y));
+                            }
+                        }
+
+                        if (i === 0 || i === rows - 1 ||  j === columns - 1) {
+                            intersectPoint = MathUtils.intersect(boundLine[0], boundLine[1], line3[0], line3[1]);
+                            if ((intersectPoint.x !== -1 || intersectPoint.y !== -1) &&
+                                    MathUtils.lineLength(intersectPoint, Qt.point(place2.x, place2.y)) <= boundLength) {
+                                if (MathUtils.lineLength(intersectPoint, Qt.point(place2.x, place2.y)) !== boundLength)
+                                    root.links[l]["boundaryPlaces"].length = 0;
+                                root.links[l]["boundaryPlaces"].push(place2);
+                                boundLength = MathUtils.lineLength(intersectPoint, Qt.point(place2.x, place2.y));
+                            }
+                        }
+                    }
+                }
                 parking.placeArray.push(place1, road, place2);
-                parking.placeArrayChanged();
                 count += 3;
             }
         }
+
+        parking.placeArrayChanged();
+//        console.log("boundaryPlaces:");
+//        root.links[0]["boundaryPlaces"].forEach(function(entry) {
+//            console.log("\t\t", entry.index);
+//        })
     }
 
     function fillBigIsland() {
         var ih = bigIsland.height;
+
+        var count = parking.placeArray.length;
 
         var roadWidth = horizontal ? w : roadCount * h;
         var roadHeight = horizontal ? roadCount * w : h;
@@ -293,73 +426,222 @@ Rectangle {
 
         var component = Qt.createComponent("Place.qml");
 
-        if (ih >= onlyRoad && ih < pPlaceRoad) {
+        if (ih >= onlyRoad && ih < placeRoad) {
             /* |road| */
             for( var i = 0; i < rows; i++) {
-                var coordX = horizontal ? w * i + longOffset : mainEdge + shortOffset
-                var coordY = !horizontal ? h* i + longOffset : mainEdge + shortOffset
+                var coordX = (horizontal ? w * i + longOffset : mainEdge + shortOffset) + root.x
+                var coordY = (!horizontal ? h* i + longOffset : mainEdge + shortOffset) + root.y
 
-                var road = component.createObject(root, {"width": roadWidth ,  "height": roadHeight, "isRoad": true,
-                                                      "x": coordX, "y": coordY });
+                var road = component.createObject(root.parent, {"width": roadWidth ,  "height": roadHeight, "isRoad": true,
+                                                      "x": coordX, "y": coordY, "index": count , "capacity": Singletons.common.roadCount});
+                
+                parking.placeArray.push(road);
+                road.addNeighbors((i + 1) * columns * 3 + firstPlaceIndex - 1);
+                parking.placeArray[(i + 1) * columns * 3 + firstPlaceIndex - 1].addNeighbors(road.index);
+                count++;
+                if (i !== 0) {
+                    road.addNeighbors(road.index - 1);
+                    road.addNeighborRoad(road.index - 1);
+                    road.addNeighborPlaces(road.index - 1);
+                } else {
+                    streetBegins.push(road);
+                }
+                if (i !== rows - 1) {
+                    road.addNeighbors(road.index + 1);
+                    road.addNeighborRoad(road.index + 1);
+                    road.addNeighborPlaces(road.index  + 1);
+                }
+
+                for (var l = 0; l < root.links.length; l++) {
+                    var boundLine = root.links[l]["line"],
+                            param = "",
+                            line2 = []
+                    if (boundLine[0].x === boundLine[1].x) {
+                        line2 = road.x > boundLine[0].x ? [Qt.point(road.x, road.y), Qt.point(0, road.y)]
+                                                        : [Qt.point(road.x, road.y), Qt.point(parking.width, road.y)]
+                    } else {
+                        line2 = road.y > boundLine[0].y ? [Qt.point(road.x, road.y), Qt.point(road.x, 0)]
+                                                        : [Qt.point(road.x, road.y), Qt.point(road.x, parking.height)]
+                    }
+                    var intersectPoint = MathUtils.intersect(boundLine[0], boundLine[1], line2[0], line2[1]);
+                    if ((intersectPoint.x !== -1 || intersectPoint.y !== -1) &&
+                            MathUtils.lineLength(intersectPoint, Qt.point(road.x, road.y)) <= boundLength) {
+                        if (MathUtils.lineLength(intersectPoint, Qt.point(road.x, road.y)) !== boundLength)
+                            root.links[l]["boundaryPlaces"].length = 0;
+                        root.links[l]["boundaryPlaces"].push(road);
+                        boundLength = MathUtils.lineLength(intersectPoint, Qt.point(road.x, road.y));
+                    }
+
+                }
             }
         }
-        if (ih >= pPlaceRoad && ih < placeRoad) {
-            /* |p|road| */
-            /* |l|road| */
-            /* |a|road| */
-            /* |c|road| */
-            /* |e|road| */
-            for( var i = 0; i < rows; i++) {
-                var coordX = horizontal ? w * i + longOffset : mainEdge + shortOffset
-                var coordY = !horizontal ? h* i + longOffset : mainEdge + shortOffset
-                var road = component.createObject(root, {"width": roadWidth ,  "height": roadHeight, "isRoad": true,
-                                                      "x": coordX, "y": coordY });
-            }
+//        if (ih >= pPlaceRoad && ih < placeRoad) {
+//            /* |p|road| */
+//            /* |l|road| */
+//            /* |a|road| */
+//            /* |c|road| */
+//            /* |e|road| */
+//            for( var i = 0; i < rows; i++) {
+//                var coordX = (horizontal ? w * i + longOffset : mainEdge + shortOffset) + root.x
+//                var coordY = (!horizontal ? h * i + longOffset : mainEdge + shortOffset) + root.y
+//                var road = component.createObject(root.parent, {"width": roadWidth ,  "height": roadHeight, "isRoad": true,
+//                                                      "x": coordX, "y": coordY, "index": count });
 
-            for( var i = 0; i < Math.floor(longEdge / Math.max(root.placeHeight, root.placeWidth)); i++) {
-                var coordX = horizontal ? h * i + longOffset : mainEdge
-                var coordY = !horizontal ? w * i + longOffset : mainEdge
-                var place1 = component.createObject(root, {"width": h, "height": w,
-                                                        "x": coordX + (!horizontal ? roadWidth : 0), "y": coordY  + (horizontal ? roadHeight : 0)});
-            }
+//                parking.placeArray.push(road);
+//                road.addNeighbors((i + 1) * columns * 3 + firstPlaceIndex - 1);
+//                parking.placeArray[(i + 1) * columns * 3 + firstPlaceIndex - 1].addNeighbors(road.index);
+//                count++;
+//                if (i !== 0) {
+//                    road.addNeighbors(road.index - 1);
+//                    road.addNeighborRoad(road.index - 1);
+//                    road.addNeighborPlaces(road.index - 1);
+//                } else {
+//                    streetBegins.push(road);
+//                }
 
-        }
-        if (ih > placeRoad && ih < pPlaceRoadPlace) {
+//                if (i !== rows - 1) {
+//                    road.addNeighbors(road.index + 1);
+//                    road.addNeighborRoad(road.index + 1);
+//                    road.addNeighborPlaces(road.index  + 1);
+//                }
+//            }
+
+//            for( var i = 0; i < Math.floor(longEdge / Math.max(root.placeHeight, root.placeWidth)); i++) {
+//                var coordX = (horizontal ? h * i + longOffset : mainEdge) + root.x
+//                var coordY = (!horizontal ? w * i + longOffset : mainEdge) + root.y
+//                var place1 = component.createObject(root.parent, {"width": h, "height": w, "index": count,
+//                                                        "x": coordX + (!horizontal ? roadWidth : 0), "y": coordY  + (horizontal ? roadHeight : 0)});
+
+//                parking.placeArray.push(place1);
+//                count++;
+//            }
+//        }
+        if (ih > placeRoad /*&& ih < pPlaceRoadPlace*/) {
             /* |place|road| */
             for( var i = 0; i < rows; i++) {
-                var coordX = horizontal ? w * i + longOffset : mainEdge + shortOffset
-                var coordY = !horizontal ? h* i + longOffset : mainEdge + shortOffset
+                var coordX = (horizontal ? w * i + longOffset : mainEdge + shortOffset) + root.x
+                var coordY = (!horizontal ? h* i + longOffset : mainEdge + shortOffset) + root.y
 
-                var place1 = component.createObject(root, {"width": w, "height": h,
-                                                        "x": coordX + (!horizontal ? roadWidth : 0), "y": coordY  + (horizontal ? roadHeight : 0)});
-                var road = component.createObject(root, {"width": roadWidth ,  "height": roadHeight, "isRoad": true,
+                var road = component.createObject(root.parent, {"width": roadWidth ,  "height": roadHeight, "index": count + 1, "isRoad": true,
+                                                        "x": coordX + (!horizontal ? w : 0), "y": coordY  + (horizontal ? h : 0), "capacity": Singletons.common.roadCount});
+                var place1 = component.createObject(root.parent, {"width": w, "height": h,  "index": count ,
                                                       "x": coordX, "y": coordY });
-            }
 
+                parking.placeArray.push(place1, road);
+                count += 2;
+
+                road.addNeighbors(place1.index); road.addNeighborPlaces(place1.index);
+                place1.addNeighbors(road.index); place1.addNeighborPlaces(road.index);
+                place1.addNeighbors((i + 1) * columns * 3 + firstPlaceIndex - 1);
+                parking.placeArray[(i + 1) * columns * 3 + firstPlaceIndex - 1].addNeighbors(place1.index);
+                if (i !== 0) {
+                    place1.addNeighbors(place1.index - 2);
+                    road.addNeighbors(road.index - 2);
+                    road.addNeighborRoad(road.index - 2);
+                    road.addNeighborPlaces(road.index - 2);
+                } else {
+                    streetBegins.push(road);
+                }
+
+                if (i !== rows - 1) {
+                    place1.addNeighbors(place1.index + 2);
+                    road.addNeighbors(road.index + 2);
+                    road.addNeighborRoad(road.index + 2);
+                    road.addNeighborPlaces(road.index  + 2);
+                }
+
+                for (var l = 0; l < root.links.length; l++) {
+                    var boundLine = root.links[l]["line"],
+                            param = "",
+                            line1 = [],
+                            line2 = [];
+                    if (boundLine[0].x === boundLine[1].x) {
+                        line1 = place1.x > boundLine[0].x ? [Qt.point(place1.x, place1.y), Qt.point(0, place1.y)]
+                                                          : [Qt.point(place1.x, place1.y), Qt.point(parking.width, place1.y)]
+                        line2 = road.x > boundLine[0].x ? [Qt.point(road.x, road.y), Qt.point(0, road.y)]
+                                                        : [Qt.point(road.x, road.y), Qt.point(parking.width, road.y)]
+                    } else {
+                        line1 = place1.y > boundLine[0].y ? [Qt.point(place1.x, place1.y), Qt.point(place1.x, 0)]
+                                                          : [Qt.point(place1.x, place1.y), Qt.point(place1.x, parking.height)]
+                        line2 = road.y > boundLine[0].y ? [Qt.point(road.x, road.y), Qt.point(road.x, 0)]
+                                                        : [Qt.point(road.x, road.y), Qt.point(road.x, parking.height)]
+                    }
+                    var intersectPoint;
+                    if (i === 0 || i === rows - 1) {
+                        intersectPoint = MathUtils.intersect(boundLine[0], boundLine[1], line1[0], line1[1]);
+
+                        if ((intersectPoint.x !== -1 || intersectPoint.y !== -1) &&
+                                MathUtils.lineLength(intersectPoint, Qt.point(place1.x, place1.y)) <= boundLength) {
+                            if (MathUtils.lineLength(intersectPoint, Qt.point(place1.x, place1.y)) !== boundLength)
+                                root.links[l]["boundaryPlaces"].length = 0;
+                            root.links[l]["boundaryPlaces"].push(place1);
+                            boundLength = MathUtils.lineLength(intersectPoint, Qt.point(place1.x, place1.y));
+                        }
+                    }
+
+                    intersectPoint = MathUtils.intersect(boundLine[0], boundLine[1], line2[0], line2[1]);
+                    if ((intersectPoint.x !== -1 || intersectPoint.y !== -1) &&
+                            MathUtils.lineLength(intersectPoint, Qt.point(road.x, road.y)) <= boundLength) {
+                        if (MathUtils.lineLength(intersectPoint, Qt.point(road.x, road.y)) !== boundLength)
+                            root.links[l]["boundaryPlaces"].length = 0;
+                        root.links[l]["boundaryPlaces"].push(road);
+                        boundLength = MathUtils.lineLength(intersectPoint, Qt.point(road.x, road.y));
+                    }
+                }
+            }
         }
-        if (ih > pPlaceRoadPlace) {
-            /* |p|road|place| */
-            /* |l|road|place| */
-            /* |a|road|place| */
-            /* |c|road|place| */
-            /* |e|road|place| */
-            for( var i = 0; i < rows; i++) {
-                var coordX = horizontal ? w * i + longOffset : mainEdge + shortOffset
-                var coordY = !horizontal ? h* i + longOffset : mainEdge + shortOffset
 
-                var place1 = component.createObject(root, {"width": w, "height": h,
-                                                        "x": coordX, "y": coordY});
-                var road = component.createObject(root, {"width": roadWidth ,  "height": roadHeight, "isRoad": true,
-                                                      "x": coordX + (!horizontal ? w : 0), "y": coordY + (horizontal ? h : 0)});
-            }
+//        if (ih > pPlaceRoadPlace) {
+//            /* |p|road|place| */
+//            /* |l|road|place| */
+//            /* |a|road|place| */
+//            /* |c|road|place| */
+//            /* |e|road|place| */
+//            for( var i = 0; i < rows; i++) {
+//                var coordX = (horizontal ? w * i + longOffset : mainEdge + shortOffset) + root.x
+//                var coordY = (!horizontal ? h* i + longOffset : mainEdge + shortOffset) + root.y
 
-            for( var i = 0; i < Math.floor(longEdge / Math.max(root.placeHeight, root.placeWidth)); i++) {
-                var coordX = horizontal ? h * i + longOffset : mainEdge
-                var coordY = !horizontal ? w * i + longOffset : mainEdge
-                var place1 = component.createObject(root, {"width": h, "height": w,
-                                                        "x": coordX + (!horizontal ? roadWidth + w : 0), "y": coordY  + (horizontal ? roadHeight + h : 0)});
-            }
-        }
+//                var place1 = component.createObject(root.parent, {"width": w, "height": h, "index": count,
+//                                                        "x": coordX, "y": coordY});
+//                var road = component.createObject(root.parent, {"width": roadWidth ,  "height": roadHeight, "isRoad": true, "index": count + 1,
+//                                                      "x": coordX + (!horizontal ? w : 0), "y": coordY + (horizontal ? h : 0)});
+
+//                parking.placeArray.push(place1, road);
+//                count+=2;
+//                road.addNeighbors(place1.index); road.addNeighborPlaces(place1.index);
+//                place1.addNeighbors(road.index); place1.addNeighborPlaces(road.index);
+//                place1.addNeighbors((i + 1) * columns * 3 + firstPlaceIndex - 1);
+//                parking.placeArray[(i + 1) * columns * 3 + firstPlaceIndex - 1].addNeighbors(place1.index);
+//                if (i !== 0) {
+//                    place1.addNeighbors(place1.index - 2);
+//                    road.addNeighbors(road.index - 2);
+//                    road.addNeighborRoad(road.index - 2);
+//                    road.addNeighborPlaces(road.index - 2);
+//                } else {
+//                    streetBegins.push(road);
+//                }
+
+//                if (i !== rows - 1) {
+//                    place1.addNeighbors(place1.index + 2);
+//                    road.addNeighbors(road.index + 2);
+//                    road.addNeighborRoad(road.index + 2);
+//                    road.addNeighborPlaces(road.index  + 2);
+//                }
+//                console.log("###", road, road.neighborRoad)
+//            }
+
+//            for( var i = 0; i < Math.floor(longEdge / Math.max(root.placeHeight, root.placeWidth)); i++) {
+//                var coordX = (horizontal ? h * i + longOffset : mainEdge) + root.x
+//                var coordY = (!horizontal ? w * i + longOffset : mainEdge) + root.x
+//                var place1 = component.createObject(root, {"width": h, "height": w, "index": count,
+//                                                        "x": coordX + (!horizontal ? roadWidth + w : 0), "y": coordY  + (horizontal ? roadHeight + h : 0)});
+
+//                parking.placeArray.push(place1);
+//                count++;
+//            }
+//        }
+
+        parking.placeArrayChanged();
     }
 
     Connections {
@@ -368,11 +650,37 @@ Rectangle {
         onStart: root.destroy();
         onClear: root.destroy();
     }
+/*
+    Rectangle {
+        id: big
+        x: root.width - width
+        y: root.height - height
+        width: root.width >= root.height ? root.bigIsland.width : root.bigIsland.height
+        height: root.width < root.height ? root.bigIsland.width : root.bigIsland.height
+        color: "lightgreen"
+        border.color: "black"
 
+        visible: Singletons.common.visibleState === 0 || Singletons.common.visibleState === 3
+        opacity: 0.5
+    }
+
+    Rectangle {
+        id: small
+        x: root.width - width
+        y: root.height - height
+        width: root.width < root.height ? root.smallIsland.width : root.smallIsland.height
+        height: root.width >= root.height ? root.smallIsland.width : root.smallIsland.height
+        color: "lightblue"
+        border.color: "black"
+
+        visible: Singletons.common.visibleState === 0 || Singletons.common.visibleState === 3
+        opacity: 0.5
+    }
+*/
     Canvas {
         id: neighbors
         anchors.fill: parent
-
+        z: 100
         Connections {
             target: parking
             onPlaceArrayChanged: neighbors.requestPaint()
@@ -408,6 +716,7 @@ Rectangle {
     Canvas {
         id: neighborRoad
         anchors.fill: parent
+        z: 100
 
         Connections {
             target: parking
@@ -444,6 +753,7 @@ Rectangle {
     Canvas {
         id: neighborPlaces
         anchors.fill: parent
+        z: 100
 
         Connections {
             target: parking
@@ -478,32 +788,5 @@ Rectangle {
             ctx.stroke();
             ctx.closePath();
         }
-    }
-
-
-    Rectangle {
-        id: big
-        x: root.width - width
-        y: root.height - height
-        width: root.width >= root.height ? root.bigIsland.width : root.bigIsland.height
-        height: root.width < root.height ? root.bigIsland.width : root.bigIsland.height
-        color: "lightgreen"
-        border.color: "black"
-
-        visible: Singletons.common.visibleState === 0 || Singletons.common.visibleState === 3
-        opacity: 0.5
-    }
-
-    Rectangle {
-        id: small
-        x: root.width - width
-        y: root.height - height
-        width: root.width < root.height ? root.smallIsland.width : root.smallIsland.height
-        height: root.width >= root.height ? root.smallIsland.width : root.smallIsland.height
-        color: "lightblue"
-        border.color: "black"
-
-        visible: Singletons.common.visibleState === 0 || Singletons.common.visibleState === 3
-        opacity: 0.5
     }
 }
